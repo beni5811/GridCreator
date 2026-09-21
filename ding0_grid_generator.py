@@ -94,14 +94,21 @@ def extract_lv_subnetwork_to_nearest_transformers(start_buses: pd.DataFrame, pat
     else:
         lv_targets = [bus for bus in lv_transformer_buses_all if bus in G_lv.nodes]
 
-    # Collect relevant buses along the paths
+     # Collect relevant buses along the paths
     relevant_buses = set()
+    matched_transformers = set()
     for bus in tqdm(start_buses["name"], desc="Searching start buses"):
         # Only use LV buses (v_nom <= 0.4) that are also in the LV graph
         if buses_vn.get(bus, 1.0) <= 0.4 and bus in G_lv:
             path_to_lv = shortest_path_to_lv_transformer(G_lv, bus, lv_targets)
             if path_to_lv:
                 relevant_buses.update(path_to_lv)
+                matched_transformers.add(path_to_lv[-1])
+
+    # Pull in the whole feeder regardless of bbox
+    for trafo_bus in matched_transformers:
+        if trafo_bus in G_lv:
+            relevant_buses.update(nx.node_connected_component(G_lv, trafo_bus))
 
     # Extend relevant_buses with transformers connected to relevant buses
     for _, trafo in grid.transformers.iterrows():
